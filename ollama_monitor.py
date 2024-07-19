@@ -13,10 +13,10 @@ import statistics
 import aiofiles
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables from a .env file
 load_dotenv()
 
-# Configure logging
+# Configure logging to log info level messages and above, with a specific format and output file
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -32,7 +32,6 @@ DEFAULT_TIMEOUT = int(os.getenv("DEFAULT_TIMEOUT", 10))  # seconds
 RETRY_ATTEMPTS = int(os.getenv("RETRY_ATTEMPTS", 3))
 RETRY_DELAY = int(os.getenv("RETRY_DELAY", 2))  # seconds
 
-
 @dataclass
 class EndpointConfig:
     path: str
@@ -42,7 +41,7 @@ class EndpointConfig:
     headers: Dict[str, str] = None
     body: Dict[str, Any] = None
 
-
+# Function to set up Prometheus metrics
 def setup_prometheus():
     try:
         from prometheus_client import (
@@ -53,6 +52,7 @@ def setup_prometheus():
             Counter,
         )
 
+        # Define global metrics variables
         global REQUEST_TIME, ENDPOINT_UP, REQUEST_DURATION, ERROR_COUNTER
         REQUEST_TIME = Summary(
             "ollama_request_processing_seconds", "Time spent processing request"
@@ -75,7 +75,7 @@ def setup_prometheus():
         )
         return None, False
 
-
+# Asynchronous retry decorator
 def async_retry(attempts=RETRY_ATTEMPTS, delay=RETRY_DELAY):
     def decorator(func):
         @wraps(func)
@@ -95,7 +95,7 @@ def async_retry(attempts=RETRY_ATTEMPTS, delay=RETRY_DELAY):
 
     return decorator
 
-
+# Main class for monitoring endpoints
 class OllamaMonitor:
     def __init__(
         self,
@@ -175,6 +175,7 @@ class OllamaMonitor:
                 ERROR_COUNTER.labels(endpoint=endpoint).inc()
             raise
 
+    # Run checks for all endpoints
     async def run_checks(self):
         async with httpx.AsyncClient() as client:
             tasks = [
@@ -184,6 +185,7 @@ class OllamaMonitor:
             results = await asyncio.gather(*tasks, return_exceptions=True)
             return results
 
+    # Perform load testing
     async def load_test(self, num_requests: int, concurrency: int):
         async with httpx.AsyncClient() as client:
             semaphore = asyncio.Semaphore(concurrency)
@@ -231,13 +233,14 @@ class OllamaMonitor:
                 "max_response_time": max_time,
             }
 
+    # Continuous monitoring with specified interval
     async def continuous_monitoring(self, interval: int):
         while True:
             logging.info(f"Running checks (interval: {interval} seconds)")
             await self.run_checks()
             await asyncio.sleep(interval)
 
-
+# Generate a report from results and save to a file
 async def generate_report(results: List[Dict[str, Any]], filename: str):
     report = "Ollama Monitor Report\n"
     report += "=====================\n\n"
@@ -254,12 +257,12 @@ async def generate_report(results: List[Dict[str, Any]], filename: str):
 
     logging.info(f"Report generated: {filename}")
 
-
+# Load configuration from a YAML file
 def load_config(config_file: str) -> Dict[str, Any]:
     with open(config_file, "r") as file:
         return yaml.safe_load(file)
 
-
+# Parse command-line arguments
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description="Test connectivity to the Ollama server."
@@ -298,7 +301,7 @@ def parse_arguments():
     )
     return parser.parse_args()
 
-
+# Main function to orchestrate the monitoring and testing
 async def main():
     args = parse_arguments()
 
@@ -342,6 +345,6 @@ async def main():
         results = await monitor.run_checks()
         await generate_report(results, "ollama_monitor_report.txt")
 
-
+# Run the main function in an asyncio event loop
 if __name__ == "__main__":
     asyncio.run(main())
