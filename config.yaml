@@ -1,0 +1,14 @@
+base_url: "http://127.0.0.1:11435"
+timeout: 10
+endpoints:
+  "/":
+    path: "/"
+    method: "GET"
+    expected_status: 200
+    expected_content: "Ollama is running"
+  "/api/generate":
+    path: "/api/generate"
+    method: "POST"
+    expected_status: 200
+    headers:
+      Content-Type: "application/json"
