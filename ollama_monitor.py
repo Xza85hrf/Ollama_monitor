@@ -20,7 +20,7 @@ load_dotenv()
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
-    filename="ollama_monitor.log",
+    filename="/dev/stdout",
     filemode="a",
 )
 
@@ -241,16 +241,21 @@ class OllamaMonitor:
             await asyncio.sleep(interval)
 
 # Generate a report from results and save to a file
-async def generate_report(results: List[Dict[str, Any]], filename: str):
+async def generate_report(results: List[tuple], filename: str):
     report = "Ollama Monitor Report\n"
     report += "=====================\n\n"
 
     for idx, result in enumerate(results):
-        report += f"Endpoint {idx + 1}:\n"
-        report += f"  Status Code: {result.get('status_code', 'N/A')}\n"
-        report += (
-            f"  Response Time: {result.get('response_time', 'N/A'):.2f} seconds\n\n"
-        )
+        if isinstance(result, Exception):
+            report += f"Endpoint {idx + 1}: An error occurred - {str(result)}\n"
+        elif isinstance(result, tuple):
+            # Extraer los valores de la tupla
+            response_time, status_code = result
+            report += f"Endpoint {idx + 1}:\n"
+            report += f"  Status Code: {status_code}\n"
+            report += f"  Response Time: {response_time:.2f} seconds\n\n"
+        else:
+            report += f"Endpoint {idx + 1}: Unexpected result format\n"
 
     async with aiofiles.open(filename, mode="w") as f:
         await f.write(report)

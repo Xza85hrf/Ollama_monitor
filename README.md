@@ -1,48 +1,57 @@
 # Ollama Monitor
 
-Ollama Monitor is a Python script designed to test connectivity and performance of an Ollama server. It provides functionality for endpoint checking, load testing, and optional Prometheus metrics export.
+Ollama Monitor is a Python tool designed to help developers monitor the connectivity and performance of an Ollama server. Whether you're testing in development or conducting load tests in production, this tool ensures your API endpoints are healthy and functioning as expected.
 
 ## Features
 
-- Endpoint health checks
-- Load testing
-- Prometheus metrics export (optional)
-- Configurable via YAML file or command-line arguments
-
-## Requirements
-
-- Python 3.7+
-- Required Python packages:
-  - httpx
-  - pyyaml
-  - prometheus_client (optional, for Prometheus metrics)
+- **Endpoint Health Checks**: Monitor API endpoints and measure their response times.
+- **Load Testing**: Test the load capacity of your Ollama server with customizable concurrency levels.
+- **Prometheus Metrics Export**: Easily expose performance metrics in Prometheus format.
+- **Configurable via YAML or CLI**: Customize your tests and settings with a configuration file or command-line arguments.
 
 ## Installation
 
-1. Clone this repository or download the `ollama_monitor.py` script.
-2. Install the required packages:
+### Prerequisites
 
-```bash
-pip install httpx pyyaml prometheus_client
-```
+- Python 3.12 or higher
+- Docker (optional, for containerized deployment)
 
-## Usage
+### Install Locally
 
-### Basic Usage
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/your-repo/ollama-monitor.git
+   cd ollama-monitor
+   ```
 
-To run a basic check on the default Ollama endpoint:
+2. Install the required dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-```bash
-python ollama_monitor.py
-```
+### Docker Setup
 
-### Using a Configuration File
+1. Build the Docker image:
+   ```bash
+   docker build -t ollama-monitor .
+   ```
 
-Create a YAML configuration file (e.g., `config.yaml`) with the following structure:
+2. Run the container:
+   ```bash
+   docker run -p 8000:8000 ollama-monitor
+   ```
+
+This will expose Prometheus metrics on port 8000.
+
+## Configuration
+
+You can configure the Ollama Monitor via a YAML file or use command-line options. Below is a minimal example configuration file:
+
+### `config.yaml` Example:
 
 ```yaml
-base_url: "http://127.0.0.1:11435"
-timeout: 10
+base_url: "http://host.docker.internal:11434"
+timeout: 30
 endpoints:
   "/":
     path: "/"
@@ -52,79 +61,77 @@ endpoints:
     path: "/api/generate"
     method: "POST"
     expected_status: 200
+    headers:
+      Content-Type: "application/json"
+    body: {"model": "llama3.1", "prompt": "Provide a summary of AI", "format": "json", "stream": false}
 ```
 
-Then run the script with the configuration file:
+## Usage
 
+### Basic Check
+
+Run the monitor using a default configuration:
+```bash
+python ollama_monitor.py
+```
+
+### Using a Custom Configuration File
+
+You can specify a custom configuration file:
 ```bash
 python ollama_monitor.py --config config.yaml
 ```
 
-### Command-line Arguments
+### Running with Prometheus Metrics
 
-- `--url`: Base URL of the Ollama server (default: http://127.0.0.1:11435)
-- `--config`: Path to YAML configuration file
-- `--timeout`: Timeout for each request in seconds (default: 10)
-- `--prometheus`: Enable Prometheus metrics export
-- `--load-test`: Perform load testing
-- `--num-requests`: Number of requests for load testing (default: 100)
-- `--concurrency`: Concurrency level for load testing (default: 10)
+Enable Prometheus metrics export:
+```bash
+python ollama_monitor.py --config config.yaml --prometheus
+```
 
-### Load Testing
+## Logging
 
-To perform a load test:
+Logs are streamed to the console (`/dev/stdout`). A typical log entry includes:
 
+- Endpoint URL
+- Response status code
+- Response time
+- Errors (if any)
+
+## Load Testing
+
+To perform load testing, specify the number of requests and concurrency level:
 ```bash
 python ollama_monitor.py --load-test --num-requests 1000 --concurrency 20
 ```
 
-### Enabling Prometheus Metrics
-
-To enable Prometheus metrics export:
-
-```bash
-python ollama_monitor.py --prometheus
-```
-
-This will start a Prometheus metrics server on port 8000.
-
 ## Environment Variables
 
-- `OLLAMA_API_BASE`: Base URL of the Ollama server (default: http://127.0.0.1:11435)
-- `RETRY_ATTEMPTS`: Number of retry attempts for failed requests (default: 3)
-- `RETRY_DELAY`: Delay between retry attempts in milliseconds (default: 2000)
+| Variable          | Description                                          | Default                  |
+|-------------------|------------------------------------------------------|--------------------------|
+| `OLLAMA_API_BASE`  | Base URL of the Ollama server                        | `http://127.0.0.1:11435`  |
+| `DEFAULT_TIMEOUT`  | Request timeout in seconds                           | `10`                     |
+| `RETRY_ATTEMPTS`   | Number of retry attempts                             | `3`                      |
+| `RETRY_DELAY`      | Delay between retries in seconds                     | `2`                      |
 
-## Output
+## Report Generation
 
-The script provides detailed logging output, including:
+The monitor generates reports summarizing endpoint performance, including response times and status codes. Example report output:
+```
+Ollama Monitor Report
+=====================
 
-- Endpoint health check results
-- Response times
-- Status codes
-- Headers
-- Response content (truncated for brevity)
+Endpoint 1:
+  Status Code: 200
+  Response Time: 0.75 seconds
 
-For load tests, a summary is provided with:
-
-- Total number of requests
-- Concurrency level
-- Number of successful and failed requests
-- Average, minimum, and maximum response times
-
-## Extending the Script
-
-The `OllamaMonitor` class can be extended to add more functionality or customize the behavior of the checks and load tests. The `EndpointConfig` dataclass can be modified to include additional configuration options for each endpoint.
-
-## Troubleshooting
-
-- If you encounter SSL certificate verification errors, you may need to set the `SSL_CERT_FILE` environment variable to the path of your SSL certificate file.
-- Ensure that the Ollama server is running and accessible from the machine running the script.
-- Check firewall settings if you're unable to connect to the Ollama server.
+Endpoint 2: An error occurred - TimeoutException
+```
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Feel free to submit pull requests or issues.
 
 ## License
 
-This project is open source and available under the [MIT License](LICENSE).
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.

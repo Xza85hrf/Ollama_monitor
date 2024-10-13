@@ -1,5 +1,5 @@
-base_url: "http://127.0.0.1:11435"
-timeout: 10
+base_url: "http://host.docker.internal:11434"
+timeout: 30
 endpoints:
   "/":
     path: "/"
@@ -12,3 +12,5 @@ endpoints:
     expected_status: 200
     headers:
       Content-Type: "application/json"
+    body: {"model":"your-config-model", "prompt": "Provide a summary of AI", "format": "json", "stream": false}
+
