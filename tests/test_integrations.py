@@ -2,6 +2,7 @@
 import pytest
 import tempfile
 import os
+import logging
 from unittest.mock import AsyncMock, Mock, patch
 from pathlib import Path
 

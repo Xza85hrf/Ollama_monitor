@@ -2,7 +2,7 @@
 import asyncio
 import logging
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import httpx
 
 
@@ -60,7 +60,7 @@ class AlertManager:
             return False
 
         payload = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
             "severity": severity,
             "message": message,
             "service": "ollama-monitor",
