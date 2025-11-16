@@ -1,7 +1,7 @@
 """Report generation in multiple formats (text, JSON, CSV, HTML)."""
 import csv
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Any, Dict
 import aiofiles
 from jinja2 import Template
@@ -11,7 +11,7 @@ async def generate_text_report(results: List[Any], filename: str) -> None:
     """Generate text-based report."""
     report = "Ollama Monitor Report\n"
     report += "=====================\n"
-    report += f"Generated: {datetime.utcnow().isoformat()}Z\n\n"
+    report += f"Generated: {datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')}\n\n"
 
     for idx, result in enumerate(results):
         if isinstance(result, Exception):
@@ -31,7 +31,7 @@ async def generate_text_report(results: List[Any], filename: str) -> None:
 async def generate_json_report(results: List[Any], endpoints: Dict[str, Any], filename: str) -> None:
     """Generate JSON report."""
     report_data = {
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
         "summary": {
             "total_endpoints": len(results),
             "successful": sum(1 for r in results if isinstance(r, tuple) and r[1] == 200),
@@ -299,7 +299,7 @@ async def generate_html_report(results: List[Any], endpoints: Dict[str, Any], fi
 
     template = Template(html_template)
     html_content = template.render(
-        timestamp=datetime.utcnow().isoformat() + "Z",
+        timestamp=datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
         total=len(results),
         successful=successful,
         failed=failed,

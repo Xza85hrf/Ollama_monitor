@@ -1,6 +1,6 @@
 """Configuration validation using Pydantic models."""
 from typing import Dict, Optional, Any
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator, ConfigDict
 
 
 class EndpointConfigModel(BaseModel):
@@ -44,14 +44,8 @@ class AlertConfigModel(BaseModel):
 class MonitorConfigModel(BaseModel):
     """Pydantic model for main configuration validation."""
 
-    base_url: HttpUrl = Field(..., description="Base URL of the Ollama server")
-    timeout: int = Field(default=10, ge=1, le=300, description="Request timeout in seconds")
-    endpoints: Dict[str, EndpointConfigModel] = Field(..., description="Endpoints to monitor")
-    alerting: Optional[AlertConfigModel] = Field(default=None, description="Alert configuration")
-
-    class Config:
-        """Pydantic configuration."""
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "base_url": "http://localhost:11434",
                 "timeout": 30,
@@ -71,6 +65,12 @@ class MonitorConfigModel(BaseModel):
                 }
             }
         }
+    )
+
+    base_url: HttpUrl = Field(..., description="Base URL of the Ollama server")
+    timeout: int = Field(default=10, ge=1, le=300, description="Request timeout in seconds")
+    endpoints: Dict[str, EndpointConfigModel] = Field(..., description="Endpoints to monitor")
+    alerting: Optional[AlertConfigModel] = Field(default=None, description="Alert configuration")
 
 
 def validate_config(config_dict: Dict[str, Any]) -> MonitorConfigModel:
