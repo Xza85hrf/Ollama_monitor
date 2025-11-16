@@ -6,7 +6,8 @@ import logging
 import os
 import yaml
 import argparse
-from typing import Dict, Any, List
+import signal
+from typing import Dict, Any, List, Tuple, Optional
 from dataclasses import dataclass
 from functools import wraps
 import statistics
@@ -16,12 +17,11 @@ from dotenv import load_dotenv
 # Load environment variables from a .env file
 load_dotenv()
 
-# Configure logging to log info level messages and above, with a specific format and output file
+# Configure logging to log info level messages and above, with a specific format
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    filename="/dev/stdout",
-    filemode="a",
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler()],
 )
 
 # Read configuration from environment variables or use default values
@@ -37,9 +37,9 @@ class EndpointConfig:
     path: str
     method: str = "GET"
     expected_status: int = 200
-    expected_content: str = None
-    headers: Dict[str, str] = None
-    body: Dict[str, Any] = None
+    expected_content: Optional[str] = None
+    headers: Optional[Dict[str, str]] = None
+    body: Optional[Dict[str, Any]] = None
 
 # Function to set up Prometheus metrics
 def setup_prometheus():
@@ -108,11 +108,12 @@ class OllamaMonitor:
         self.endpoints = endpoints
         self.timeout = timeout
         self.use_prometheus = use_prometheus
+        self.shutdown_event = asyncio.Event()
 
     @async_retry()
     async def check_endpoint(
         self, client: httpx.AsyncClient, endpoint: str, config: EndpointConfig
-    ):
+    ) -> Tuple[float, int]:
         full_url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
         logging.info(f"\nTesting URL: {full_url}")
 
@@ -176,8 +177,8 @@ class OllamaMonitor:
             raise
 
     # Run checks for all endpoints
-    async def run_checks(self):
-        async with httpx.AsyncClient() as client:
+    async def run_checks(self) -> List[Any]:
+        async with httpx.AsyncClient(verify=True) as client:
             tasks = [
                 self.check_endpoint(client, endpoint, config)
                 for endpoint, config in self.endpoints.items()
@@ -186,8 +187,8 @@ class OllamaMonitor:
             return results
 
     # Perform load testing
-    async def load_test(self, num_requests: int, concurrency: int):
-        async with httpx.AsyncClient() as client:
+    async def load_test(self, num_requests: int, concurrency: int) -> Dict[str, Any]:
+        async with httpx.AsyncClient(verify=True) as client:
             semaphore = asyncio.Semaphore(concurrency)
             response_times = []
             status_codes = []
@@ -234,11 +235,26 @@ class OllamaMonitor:
             }
 
     # Continuous monitoring with specified interval
-    async def continuous_monitoring(self, interval: int):
-        while True:
-            logging.info(f"Running checks (interval: {interval} seconds)")
-            await self.run_checks()
-            await asyncio.sleep(interval)
+    async def continuous_monitoring(self, interval: int) -> None:
+        """Run continuous monitoring with graceful shutdown support."""
+        logging.info(f"Starting continuous monitoring (interval: {interval} seconds)")
+        while not self.shutdown_event.is_set():
+            logging.info("Running checks...")
+            try:
+                await self.run_checks()
+            except Exception as e:
+                logging.error(f"Error during monitoring: {e}")
+
+            # Wait for interval or shutdown event
+            try:
+                await asyncio.wait_for(
+                    self.shutdown_event.wait(),
+                    timeout=interval
+                )
+            except asyncio.TimeoutError:
+                continue
+
+        logging.info("Continuous monitoring stopped gracefully")
 
 # Generate a report from results and save to a file
 async def generate_report(results: List[tuple], filename: str):
@@ -307,7 +323,7 @@ def parse_arguments():
     return parser.parse_args()
 
 # Main function to orchestrate the monitoring and testing
-async def main():
+async def main() -> None:
     args = parse_arguments()
 
     prometheus_available = False
@@ -330,25 +346,40 @@ async def main():
 
     monitor = OllamaMonitor(base_url, endpoints, timeout, prometheus_available)
 
-    if args.load_test:
-        logging.info(
-            f"Starting load test with {args.num_requests} requests and concurrency {args.concurrency}"
-        )
-        results = await monitor.load_test(args.num_requests, args.concurrency)
-        logging.info("Load Test Results:")
-        for key, value in results.items():
-            if isinstance(value, float):
-                logging.info(f"{key}: {value:.3f}")
-            else:
-                logging.info(f"{key}: {value}")
-    elif args.continuous:
-        logging.info(
-            f"Starting continuous monitoring with interval of {args.interval} seconds"
-        )
-        await monitor.continuous_monitoring(args.interval)
-    else:
-        results = await monitor.run_checks()
-        await generate_report(results, "ollama_monitor_report.txt")
+    # Setup signal handlers for graceful shutdown
+    loop = asyncio.get_event_loop()
+
+    def signal_handler(sig):
+        logging.info(f"Received signal {sig}, initiating graceful shutdown...")
+        monitor.shutdown_event.set()
+
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, lambda s=sig: signal_handler(s))
+
+    try:
+        if args.load_test:
+            logging.info(
+                f"Starting load test with {args.num_requests} requests and concurrency {args.concurrency}"
+            )
+            results = await monitor.load_test(args.num_requests, args.concurrency)
+            logging.info("Load Test Results:")
+            for key, value in results.items():
+                if isinstance(value, float):
+                    logging.info(f"{key}: {value:.3f}")
+                else:
+                    logging.info(f"{key}: {value}")
+        elif args.continuous:
+            logging.info(
+                f"Starting continuous monitoring with interval of {args.interval} seconds"
+            )
+            await monitor.continuous_monitoring(args.interval)
+        else:
+            results = await monitor.run_checks()
+            await generate_report(results, "ollama_monitor_report.txt")
+    except KeyboardInterrupt:
+        logging.info("Keyboard interrupt received, shutting down...")
+    finally:
+        logging.info("Shutdown complete")
 
 # Run the main function in an asyncio event loop
 if __name__ == "__main__":

@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'ollama-monitor'
+
+scrape_configs:
+  - job_name: 'ollama-monitor'
+    static_configs:
+      - targets: ['ollama-monitor:8000']
+        labels:
+          service: 'ollama-monitor'
+          environment: 'production'
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
