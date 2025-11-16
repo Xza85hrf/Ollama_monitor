@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ollama-monitor-config
+data:
+  config.yaml: |
+    base_url: "http://ollama-service:11434"
+    timeout: 30
+    endpoints:
+      "/":
+        path: "/"
+        method: "GET"
+        expected_status: 200
+        expected_content: "Ollama is running"
+      "/api/generate":
+        path: "/api/generate"
+        method: "POST"
+        expected_status: 200
+        headers:
+          Content-Type: "application/json"
+        body:
+          model: "llama2"
+          prompt: "Health check"
+          stream: false
+    alerting:
+      enabled: false
+      webhook_url: ""
+      alert_on_failure: true
+      alert_threshold: 0.95
+      min_failures: 3

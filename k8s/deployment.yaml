@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama-monitor
+  labels:
+    app: ollama-monitor
+    version: v1.0.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama-monitor
+  template:
+    metadata:
+      labels:
+        app: ollama-monitor
+        version: v1.0.0
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
+      containers:
+      - name: monitor
+        image: ollama-monitor:latest
+        imagePullPolicy: IfNotPresent
+
+        ports:
+        - name: metrics
+          containerPort: 8000
+          protocol: TCP
+
+        env:
+        - name: OLLAMA_API_BASE
+          value: "http://ollama-service:11434"
+        - name: DEFAULT_TIMEOUT
+          value: "30"
+        - name: RETRY_ATTEMPTS
+          value: "3"
+        - name: RETRY_DELAY
+          value: "2"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: LOG_FORMAT
+          value: "json"
+
+        resources:
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+          requests:
+            memory: "128Mi"
+            cpu: "250m"
+
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+        volumeMounts:
+        - name: config
+          mountPath: /app/config.yaml
+          subPath: config.yaml
+          readOnly: true
+
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+
+      volumes:
+      - name: config
+        configMap:
+          name: ollama-monitor-config
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30

@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ollama-monitor
+  labels:
+    app: ollama-monitor
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: ollama-monitor
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics
+    scheme: http
