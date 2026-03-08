@@ -19,6 +19,7 @@ from logger_config import setup_logging
 from config_validator import validate_config, MonitorConfigModel, EndpointConfigModel
 from report_generator import generate_report as generate_report_multi_format
 from alerting import AlertManager
+from model_monitor import ModelMonitor, format_model_report
 
 # Load environment variables from a .env file
 load_dotenv()
@@ -406,6 +407,11 @@ def parse_arguments():
         action="store_true",
         help="Validate configuration file and exit",
     )
+    parser.add_argument(
+        "--models",
+        action="store_true",
+        help="Check model availability and VRAM usage",
+    )
     return parser.parse_args()
 
 
@@ -513,7 +519,14 @@ async def main() -> None:
         loop.add_signal_handler(sig, lambda s=sig: signal_handler(s))
 
     try:
-        if args.load_test:
+        if args.models:
+            logger.info("Checking model health...")
+            model_mon = ModelMonitor(base_url=base_url, timeout=timeout)
+            health = await model_mon.get_model_health()
+            report = await format_model_report(health)
+            print(report)
+
+        elif args.load_test:
             logger.info(
                 f"Starting load test: {args.num_requests} requests, concurrency {args.concurrency}"
             )
