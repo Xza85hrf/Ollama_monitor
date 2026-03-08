@@ -19,7 +19,12 @@ from logger_config import setup_logging
 from config_validator import validate_config, MonitorConfigModel, EndpointConfigModel
 from report_generator import generate_report as generate_report_multi_format
 from alerting import AlertManager
-from model_monitor import ModelMonitor, format_model_report
+from model_monitor import (
+    ModelMonitor,
+    format_model_report,
+    format_model_report_json,
+    format_model_report_csv,
+)
 
 # Load environment variables from a .env file
 load_dotenv()
@@ -523,8 +528,20 @@ async def main() -> None:
             logger.info("Checking model health...")
             model_mon = ModelMonitor(base_url=base_url, timeout=timeout)
             health = await model_mon.get_model_health()
-            report = await format_model_report(health)
-            print(report)
+
+            if args.format == "json":
+                output = await format_model_report_json(health)
+            elif args.format == "csv":
+                output = await format_model_report_csv(health)
+            else:
+                output = await format_model_report(health)
+
+            if args.output:
+                with open(args.output, "w") as f:
+                    f.write(output)
+                logger.info(f"Model report written to {args.output}")
+            else:
+                print(output)
 
         elif args.load_test:
             logger.info(

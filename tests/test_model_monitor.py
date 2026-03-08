@@ -5,7 +5,17 @@ import pytest
 from unittest.mock import AsyncMock, patch, Mock
 import httpx
 
-from model_monitor import ModelInfo, ModelMonitor, format_model_report
+import csv
+import io
+import json
+
+from model_monitor import (
+    ModelInfo,
+    ModelMonitor,
+    format_model_report,
+    format_model_report_csv,
+    format_model_report_json,
+)
 
 
 TAGS_RESPONSE = {
@@ -200,3 +210,97 @@ class TestFormatModelReport:
         assert "mistral:7b" in report
         assert "2 available" in report
         assert "1 loaded" in report
+
+
+HEALTH_FIXTURE = {
+    "available": [
+        ModelInfo(name="llama3:8b", size=4661224448, modified_at="2024-01-15", digest="abc"),
+    ],
+    "loaded": [
+        ModelInfo(name="llama3:8b", size=4661224448, modified_at="2024-01-15",
+                  digest="abc", loaded=True, vram_bytes=4661224448,
+                  expires_at="2024-01-15T11:30:00Z"),
+    ],
+    "summary": {"total_available": 1, "total_loaded": 1, "total_vram_bytes": 4661224448},
+}
+
+EMPTY_HEALTH = {
+    "available": [],
+    "loaded": [],
+    "summary": {"total_available": 0, "total_loaded": 0, "total_vram_bytes": 0},
+}
+
+
+class TestFormatModelReportJson:
+    """Test JSON export of model health."""
+
+    @pytest.mark.asyncio
+    async def test_json_valid(self):
+        result = await format_model_report_json(HEALTH_FIXTURE)
+        parsed = json.loads(result)
+        assert isinstance(parsed, dict)
+
+    @pytest.mark.asyncio
+    async def test_json_structure(self):
+        result = await format_model_report_json(HEALTH_FIXTURE)
+        parsed = json.loads(result)
+        for key in ("timestamp", "summary", "available", "loaded"):
+            assert key in parsed
+
+    @pytest.mark.asyncio
+    async def test_json_model_fields(self):
+        result = await format_model_report_json(HEALTH_FIXTURE)
+        model = json.loads(result)["available"][0]
+        for key in ("name", "size_bytes", "size_gb", "modified_at", "digest"):
+            assert key in model
+
+    @pytest.mark.asyncio
+    async def test_json_loaded_fields(self):
+        result = await format_model_report_json(HEALTH_FIXTURE)
+        model = json.loads(result)["loaded"][0]
+        for key in ("vram_bytes", "vram_gb", "expires_at"):
+            assert key in model
+
+    @pytest.mark.asyncio
+    async def test_json_empty(self):
+        result = await format_model_report_json(EMPTY_HEALTH)
+        parsed = json.loads(result)
+        assert parsed["available"] == []
+        assert parsed["loaded"] == []
+
+
+class TestFormatModelReportCsv:
+    """Test CSV export of model health."""
+
+    @pytest.mark.asyncio
+    async def test_csv_header(self):
+        result = await format_model_report_csv(HEALTH_FIXTURE)
+        header = result.strip().split("\n")[0].strip("\r")
+        assert header == "name,status,size_bytes,size_gb,vram_bytes,vram_gb,modified_at,expires_at"
+
+    @pytest.mark.asyncio
+    async def test_csv_row_count(self):
+        result = await format_model_report_csv(HEALTH_FIXTURE)
+        lines = [l for l in result.strip().splitlines() if l.strip()]
+        assert len(lines) == 3  # header + 1 available + 1 loaded
+
+    @pytest.mark.asyncio
+    async def test_csv_available_status(self):
+        result = await format_model_report_csv(HEALTH_FIXTURE)
+        rows = list(csv.reader(io.StringIO(result)))
+        available_row = [r for r in rows[1:] if r[1] == "available"][0]
+        assert available_row[0] == "llama3:8b"
+
+    @pytest.mark.asyncio
+    async def test_csv_loaded_has_vram(self):
+        result = await format_model_report_csv(HEALTH_FIXTURE)
+        rows = list(csv.reader(io.StringIO(result)))
+        loaded_row = [r for r in rows[1:] if r[1] == "loaded"][0]
+        assert loaded_row[4] != ""  # vram_bytes
+        assert loaded_row[5] != ""  # vram_gb
+
+    @pytest.mark.asyncio
+    async def test_csv_empty(self):
+        result = await format_model_report_csv(EMPTY_HEALTH)
+        lines = result.strip().split("\n")
+        assert len(lines) == 1  # header only

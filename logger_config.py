@@ -52,7 +52,7 @@ def setup_logging(log_level: str = "INFO", json_format: bool = False) -> None:
         root_logger.removeHandler(handler)
 
     # Create console handler
-    handler = logging.StreamHandler(sys.stdout)
+    handler = logging.StreamHandler(sys.stderr)
 
     # Set formatter
     if json_format:
