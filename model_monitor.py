@@ -1,6 +1,9 @@
 """Model-level health monitoring for Ollama servers."""
 from __future__ import annotations
 
+import csv
+import io
+import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -149,3 +152,67 @@ async def format_model_report(health: dict) -> str:
     )
 
     return "\n".join(lines)
+
+
+async def format_model_report_json(health: dict) -> str:
+    """Format model health data as JSON for automation pipelines."""
+    timestamp = datetime.now(timezone.utc).isoformat()
+
+    available = []
+    for model in health.get("available", []):
+        available.append({
+            "name": model.name,
+            "size_bytes": model.size,
+            "size_gb": round(model.size / (1024**3), 2),
+            "modified_at": model.modified_at,
+            "digest": model.digest,
+        })
+
+    loaded = []
+    for model in health.get("loaded", []):
+        vram_bytes = model.vram_bytes or 0
+        loaded.append({
+            "name": model.name,
+            "size_bytes": model.size,
+            "size_gb": round(model.size / (1024**3), 2),
+            "vram_bytes": vram_bytes,
+            "vram_gb": round(vram_bytes / (1024**3), 2) if vram_bytes else 0,
+            "expires_at": model.expires_at,
+        })
+
+    report = {
+        "timestamp": timestamp,
+        "summary": health.get("summary", {}),
+        "available": available,
+        "loaded": loaded,
+    }
+
+    return json.dumps(report, indent=2)
+
+
+async def format_model_report_csv(health: dict) -> str:
+    """Format model health data as CSV for spreadsheet/pipeline ingestion."""
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow(["name", "status", "size_bytes", "size_gb",
+                      "vram_bytes", "vram_gb", "modified_at", "expires_at"])
+
+    for model in health.get("available", []):
+        writer.writerow([
+            model.name, "available", model.size,
+            round(model.size / (1024**3), 2),
+            "", "", model.modified_at, "",
+        ])
+
+    for model in health.get("loaded", []):
+        vram_bytes = model.vram_bytes or 0
+        writer.writerow([
+            model.name, "loaded", model.size,
+            round(model.size / (1024**3), 2),
+            vram_bytes,
+            round(vram_bytes / (1024**3), 2) if vram_bytes else "",
+            model.modified_at, model.expires_at or "",
+        ])
+
+    return output.getvalue()
