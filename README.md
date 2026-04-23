@@ -20,8 +20,8 @@ Ollama Monitor is a Python tool designed to help developers monitor the connecti
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/your-repo/ollama-monitor.git
-   cd ollama-monitor
+   git clone https://github.com/Xza85hrf/Ollama_monitor.git
+   cd Ollama_monitor
    ```
 
 2. Install the required dependencies:

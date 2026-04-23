@@ -2,6 +2,7 @@
 import asyncio
 import httpx
 import json
+import sys
 import time
 import logging
 import os
@@ -513,15 +514,20 @@ async def main() -> None:
         alert_manager=alert_manager,
     )
 
-    # Setup signal handlers for graceful shutdown
-    loop = asyncio.get_event_loop()
-
+    # Setup signal handlers for graceful shutdown.
+    # Windows asyncio event loops do not implement add_signal_handler();
+    # fall back to signal.signal() which works cross-platform (issue #10).
     def signal_handler(sig):
         logger.info(f"Received signal {sig}, initiating graceful shutdown...")
         monitor.shutdown_event.set()
 
-    for sig in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(sig, lambda s=sig: signal_handler(s))
+    if sys.platform == "win32":
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            signal.signal(sig, lambda s, _frame: signal_handler(s))
+    else:
+        loop = asyncio.get_event_loop()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            loop.add_signal_handler(sig, lambda s=sig: signal_handler(s))
 
     try:
         if args.models:
