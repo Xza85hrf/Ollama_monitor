@@ -15,6 +15,18 @@ from functools import wraps
 import statistics
 from dotenv import load_dotenv
 
+# On Windows, the default cp1252 stdout encoding cannot emit the Unicode
+# check/cross glyphs the monitor prints on config validation. Reconfigure
+# stdout/stderr to UTF-8 with a replace fallback so running under a
+# redirected pipe or legacy code page no longer crashes with
+# UnicodeEncodeError.
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError):
+        pass
+
 # Import new modules
 from logger_config import setup_logging
 from config_validator import validate_config, MonitorConfigModel, EndpointConfigModel
