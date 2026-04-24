@@ -10,11 +10,17 @@ Be respectful and constructive in all interactions. We're all here to build bett
 
 ### 1. Fork and Clone
 
+Fork the repository on GitHub (click the **Fork** button at
+<https://github.com/Xza85hrf/Ollama_monitor>), then clone your fork
+locally:
+
 ```bash
-git fork https://github.com/Xza85hrf/Ollama_monitor
 git clone https://github.com/YOUR_USERNAME/Ollama_monitor.git
 cd Ollama_monitor
 ```
+
+> `git fork` is not a real git subcommand; forking is a GitHub-side
+> operation, not a local one.
 
 ### 2. Set Up Development Environment
 

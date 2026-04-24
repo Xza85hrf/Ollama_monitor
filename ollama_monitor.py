@@ -43,7 +43,7 @@ from model_monitor import (
 load_dotenv()
 
 # Read configuration from environment variables or use default values
-BASE_URL = os.getenv("OLLAMA_API_BASE", "http://127.0.0.1:11435")
+BASE_URL = os.getenv("OLLAMA_API_BASE", "http://127.0.0.1:11434")
 DEFAULT_TIMEOUT = int(os.getenv("DEFAULT_TIMEOUT", 10))  # seconds
 
 # Retry configuration

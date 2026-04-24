@@ -109,7 +109,7 @@ python ollama_monitor.py --load-test --num-requests 1000 --concurrency 20
 
 | Variable          | Description                                          | Default                  |
 |-------------------|------------------------------------------------------|--------------------------|
-| `OLLAMA_API_BASE`  | Base URL of the Ollama server                        | `http://127.0.0.1:11435`  |
+| `OLLAMA_API_BASE`  | Base URL of the Ollama server                        | `http://127.0.0.1:11434`  |
 | `DEFAULT_TIMEOUT`  | Request timeout in seconds                           | `10`                     |
 | `RETRY_ATTEMPTS`   | Number of retry attempts                             | `3`                      |
 | `RETRY_DELAY`      | Delay between retries in seconds                     | `2`                      |
