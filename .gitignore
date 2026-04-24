@@ -1,2 +1,10 @@
 .venv
+venv
 config.yaml
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage
